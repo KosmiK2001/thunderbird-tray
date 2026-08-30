@@ -1,0 +1,4 @@
+option('asus-led', type: 'boolean', value: false,
+  description: 'Build the ASUS mail-LED hook (reports new mail to the asus-oled daemon)')
+option('extension', type: 'boolean', value: true,
+  description: 'Install the MailExtension files (copied to TB profiles by the ebuild postinst)')

@@ -1,0 +1,24 @@
+{
+  "manifest_version": 2,
+  "name": "tb-tray reporter",
+  "version": "1.0.0",
+  "description": "Reports unread mail to the tb-tray system tray applet",
+  "applications": {
+    "gecko": {
+      "id": "tb-tray@kosmik2001",
+      "strict_min_version": "128.0"
+    }
+  },
+  "permissions": [
+    "messagesRead",
+    "alarms"
+  ],
+  "host_permissions": [
+    "http://127.0.0.1/*"
+  ],
+  "background": {
+    "scripts": [
+      "background.js"
+    ]
+  }
+}

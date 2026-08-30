@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Thunderbird Tray
+Comment=Thunderbird unread mail tray indicator
+Exec=tb-tray
+Icon=mail-message-new
+Terminal=false
+Categories=Network;Email;
+NoDisplay=false
+X-GNOME-Autostart-enabled=true
