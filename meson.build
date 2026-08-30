@@ -6,6 +6,8 @@ project('tb-tray', 'c',
 
 gtk3 = dependency('gtk+-3.0')
 gio_unix = dependency('gio-unix-2.0')
+x11 = dependency('x11')
+xtst = dependency('xtst')
 
 i18n = import('i18n')
 localedir = get_option('prefix') / get_option('localedir')
@@ -18,8 +20,9 @@ endif
 
 executable('tb-tray',
   files('tray/tb-tray.c'),
-  dependencies: [gtk3, gio_unix],
+  dependencies: [gtk3, gio_unix, x11, xtst],
   c_args: tb_cargs + [
+    '-DWITH_X11',
     '-DVERSION="' + meson.project_version() + '"',
     '-DGETTEXT_PACKAGE="tb-tray"',
     '-DLOCALEDIR="' + localedir + '"',
