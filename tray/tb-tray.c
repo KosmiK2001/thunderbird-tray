@@ -512,15 +512,46 @@ static gboolean on_http_incoming(GSocketService *svc G_GNUC_UNUSED,
                                  GObject *src G_GNUC_UNUSED,
                                  gpointer data G_GNUC_UNUSED) {
     GInputStream *in = g_io_stream_get_input_stream(G_IO_STREAM(conn));
-    char buf[8192] = {0};
-    gssize n = g_input_stream_read(in, buf, sizeof(buf) - 1, NULL, NULL);
-    if (n > 0) {
-        const char *body = strstr(buf, "\r\n\r\n");
-        body = body ? body + 4 : buf;
-        handle_report(body);
-        const char *resp = "HTTP/1.0 200 OK\r\nContent-Length: 2\r\n\r\nOK";
-        GOutputStream *out = g_io_stream_get_output_stream(G_IO_STREAM(conn));
-        g_output_stream_write(out, resp, strlen(resp), NULL, NULL);
+    char buf[16384] = {0};
+    size_t got = 0;
+    gssize n;
+    /* читаем до конца заголовков + Content-Length байт тела */
+    while ((n = g_input_stream_read(in, buf + got, sizeof(buf) - 1 - got, NULL, NULL)) > 0) {
+        got += n;
+        buf[got] = 0;
+        char *hdr_end = strstr(buf, "\r\n\r\n");
+        if (hdr_end) {
+            size_t header_len = (size_t)(hdr_end - buf) + 4;
+            int clen = 0;
+            char *cl = strcasestr(buf, "content-length:");
+            if (cl) clen = atoi(cl + 15);
+            if (got >= header_len + (size_t)clen) break;
+        }
+        if (got >= sizeof(buf) - 1) break;
+    }
+    if (got > 0) {
+        char *hdr_end = strstr(buf, "\r\n\r\n");
+        const char *body = hdr_end ? hdr_end + 4 : buf;
+        gboolean is_options = strncmp(buf, "OPTIONS", 7) == 0;
+        const char *resp;
+        char resp_buf[128];
+        if (is_options) {
+            resp = "HTTP/1.0 200 OK\r\n"
+                   "Access-Control-Allow-Origin: *\r\n"
+                   "Access-Control-Allow-Methods: POST, GET, OPTIONS\r\n"
+                   "Access-Control-Allow-Headers: Content-Type\r\n"
+                   "Content-Length: 0\r\n\r\n";
+            g_output_stream_write(g_io_stream_get_output_stream(G_IO_STREAM(conn)),
+                                  resp, strlen(resp), NULL, NULL);
+        } else {
+            handle_report(body);
+            snprintf(resp_buf, sizeof(resp_buf),
+                     "HTTP/1.0 200 OK\r\n"
+                     "Access-Control-Allow-Origin: *\r\n"
+                     "Content-Length: 2\r\n\r\nOK");
+            g_output_stream_write(g_io_stream_get_output_stream(G_IO_STREAM(conn)),
+                                  resp_buf, strlen(resp_buf), NULL, NULL);
+        }
     }
     g_io_stream_close(G_IO_STREAM(conn), NULL, NULL);
     return TRUE;
