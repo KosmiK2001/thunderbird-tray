@@ -1,7 +1,7 @@
 {
-  "manifest_version": 2,
+  "manifest_version": 3,
   "name": "tb-tray reporter",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Reports unread mail to the tb-tray system tray applet",
   "applications": {
     "gecko": {
@@ -12,15 +12,13 @@
   "permissions": [
     "messagesRead",
     "alarms",
+    "storage",
     "http://127.0.0.1/*"
   ],
   "background": {
     "scripts": [
       "background.js"
-    ]
-  },
-  "options_ui": {
-    "page": "options.html",
-    "open_in_tab": false
+    ],
+    "type": "module"
   }
 }
