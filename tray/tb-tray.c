@@ -482,6 +482,8 @@ static gboolean respawn_check(gpointer data G_GNUC_UNUSED) {
 
 static void handle_report(const char *body) {
     parse_boxes(body);
+    g_message("report received: unread=%d boxes=%d body_len=%zu",
+              extract_int(body, "unread"), n_boxes, strlen(body));
     { char ca[16] = {0};
       extract_str(body, "closeAction", ca, sizeof(ca));
       if (ca[0]) snprintf(close_action, sizeof(close_action), "%s", ca); }

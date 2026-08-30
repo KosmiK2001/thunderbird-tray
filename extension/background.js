@@ -7,11 +7,9 @@
 const ENDPOINT = "http://127.0.0.1:8765/report";
 
 async function report() {
+    let unread = -1, boxes = [], last = null, stage = "start";
     try {
-        let unread = 0;
-        let last = null;
-        let boxes = [];
-
+        stage = "accounts";
         const accounts = await browser.accounts.list();
         for (const acc of accounts) {
             let aUnread = 0, aTotal = 0;
@@ -20,6 +18,7 @@ async function report() {
                 const f = stack.pop();
                 (f.subFolders || []).forEach(s => stack.push(s));
                 try {
+                    stage = "getFolderInfo " + f.id;
                     const info = await browser.folders.getFolderInfo(f);
                     aUnread += info.totalUnread || 0;
                     aTotal += info.totalMessageCounts || 0;
@@ -29,7 +28,7 @@ async function report() {
             unread += aUnread;
         }
 
-        // последний непрочитанный (для уведомления)
+        stage = "last-unread-query";
         let page = await browser.messages.query({ unread: true });
         const all = page.messages.slice();
         while (page.id) {
@@ -41,6 +40,7 @@ async function report() {
             last = { from: m.author, subject: m.subject };
         }
 
+        stage = "fetch";
         const st = await browser.storage.local.get("closeAction");
         const payload = {
             unread: unread,
@@ -53,8 +53,16 @@ async function report() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload)
         });
+        console.log("tb-tray: reported OK, unread =", unread);
     } catch (e) {
-        /* applet not running — silent */
+        console.error("tb-tray: report failed at", stage, e);
+        try {
+            await fetch(ENDPOINT, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ unread: -1, error: stage + ": " + (e && e.message ? e.message : String(e)) })
+            });
+        } catch (e2) { /* applet недоступен */ }
     }
 }
 
