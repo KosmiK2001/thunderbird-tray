@@ -24,6 +24,7 @@
 #include <sys/file.h>
 #include <dirent.h>
 #include <locale.h>
+#include <signal.h>
 
 #ifdef WITH_X11
 #include <X11/Xlib.h>
@@ -337,6 +338,27 @@ static void ensure_tb_running(gboolean hidden) {
     spawn_tb(hidden);
 }
 
+/* завершить Thunderbird (штатный SIGTERM) */
+static void term_tb(void) {
+    DIR *d = opendir("/proc");
+    if (!d) return;
+    struct dirent *ent;
+    while ((ent = readdir(d)) != NULL) {
+        if (ent->d_name[0] < '0' || ent->d_name[0] > '9') continue;
+        char path[512], buf[128] = {0};
+        snprintf(path, sizeof(path), "/proc/%s/comm", ent->d_name);
+        int fd = open(path, O_RDONLY);
+        if (fd < 0) continue;
+        int n = (int)read(fd, buf, sizeof(buf) - 1);
+        close(fd);
+        if (n <= 0) continue;
+        buf[strcspn(buf, "\n")] = 0;
+        if (strstr(buf, "thunderbird"))
+            kill((pid_t)atoi(ent->d_name), SIGTERM);
+    }
+    closedir(d);
+}
+
 /* ---------------- tray icon (cairo) ---------------- */
 static GdkPixbuf* draw_icon(int unread) {
     cairo_surface_t *surf = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 32, 32);
@@ -584,6 +606,7 @@ static void on_menu_about(GtkMenuItem *item G_GNUC_UNUSED, gpointer data G_GNUC_
 }
 
 static void on_menu_exit(GtkMenuItem *item G_GNUC_UNUSED, gpointer data G_GNUC_UNUSED) {
+    term_tb();          /* закрываем и Thunderbird */
     gtk_main_quit();
 }
 
@@ -614,6 +637,11 @@ static void on_tray_popup(GtkStatusIcon *icon G_GNUC_UNUSED, guint button,
     gtk_widget_show_all(menu);
     gtk_menu_popup_at_pointer(GTK_MENU(menu), NULL);
     (void)button; (void)activate_time;
+}
+
+static void quit_cb(gpointer data G_GNUC_UNUSED) {
+    term_tb();          /* при завершении апплета гасим и TB */
+    gtk_main_quit();
 }
 
 /* ---------------- main ---------------- */
@@ -663,6 +691,9 @@ int main(int argc, char **argv) {
     g_socket_service_start(svc);
 
     ensure_tb_running(TRUE);
+
+    g_unix_signal_add(SIGTERM, quit_cb, NULL);
+    g_unix_signal_add(SIGINT, quit_cb, NULL);
 
     g_message("tb-tray started (http://127.0.0.1:%d/report)", HTTP_PORT);
     gtk_main();
