@@ -164,44 +164,27 @@ static void scary_missing_tb(void) {
 #include <X11/keysym.h>
 #include <X11/extensions/XTest.h>
 
-static int find_tb_windows(Display *d, Window *out, int max) {
-    Window root = DefaultRootWindow(d);
-    Atom client_list = XInternAtom(d, "_NET_CLIENT_LIST", TRUE);
-    Atom wm_pid = XInternAtom(d, "_NET_WM_PID", TRUE);
+/* ищем ВСЕ топ-окна TB через XQueryTree: работает и для управляемых,
+ * и для withdrawn-окон (спрятанных), которых нет в _NET_CLIENT_LIST */
+static int find_tb_windows(Display *d, Window root, Window *out, int max) {
     Atom wm_class = XInternAtom(d, "WM_CLASS", TRUE);
+    Window root_ret, parent;
+    Window *children = NULL;
+    unsigned int nchild = 0;
     int found = 0;
-    if (client_list == None) return 0;
-    Atom type; int fmt; unsigned long n, left; unsigned char *data = NULL;
-    if (XGetWindowProperty(d, root, client_list, 0, 1024, FALSE, XA_WINDOW,
-                           &type, &fmt, &n, &left, &data) != Success || !data)
+    if (!XQueryTree(d, root, &root_ret, &parent, &children, &nchild) || !children)
         return 0;
-    Window *wins = (Window *)data;
-    for (unsigned long i = 0; i < n && found < max; i++) {
-        unsigned long *pid = NULL; Atom t; int f;
+    for (unsigned int i = 0; i < nchild && found < max; i++) {
+        unsigned char *cls = NULL; Atom t; int f;
         unsigned long ln, lb;
-        if (XGetWindowProperty(d, wins[i], wm_pid, 0, 1, FALSE, XA_CARDINAL,
-                               &t, &f, &ln, &lb, (unsigned char **)&pid) == Success && pid) {
-            char path[512], comm[128] = {0};
-            snprintf(path, sizeof(path), "/proc/%lu/comm", (unsigned long)*pid);
-            int fd = open(path, O_RDONLY);
-            if (fd >= 0) {
-                int rd = (int)read(fd, comm, sizeof(comm) - 1);
-                close(fd);
-                if (rd > 0) comm[strcspn(comm, "\n")] = 0;
-            }
-            XFree(pid);
-            if (strstr(comm, "thunderbird")) {
-                unsigned char *cls = NULL;
-                if (XGetWindowProperty(d, wins[i], wm_class, 0, 256, FALSE, XA_STRING,
-                                       &t, &f, &ln, &lb, &cls) == Success && cls) {
-                    if (strstr((char *)cls, "thunderbird") || strstr((char *)cls, "Mail"))
-                        out[found++] = wins[i];
-                    XFree(cls);
-                }
-            }
+        if (XGetWindowProperty(d, children[i], wm_class, 0, 256, FALSE, XA_STRING,
+                               &t, &f, &ln, &lb, &cls) == Success && cls) {
+            if (strstr((char *)cls, "thunderbird") || strstr((char *)cls, "Mail"))
+                out[found++] = children[i];
+            XFree(cls);
         }
     }
-    XFree(data);
+    if (children) XFree(children);
     return found;
 }
 
@@ -226,7 +209,7 @@ static void tb_activate(void) {
     Display *d = XOpenDisplay(NULL);
     if (!d) return;
     Window wins[16];
-    int n = find_tb_windows(d, wins, 16);
+    int n = find_tb_windows(d, DefaultRootWindow(d), wins, 16);
     for (int i = 0; i < n; i++) {
         XMapRaised(d, wins[i]);
         XEvent ev;
@@ -248,7 +231,7 @@ static void tb_minimize(void) {
     Display *d = XOpenDisplay(NULL);
     if (!d) return;
     Window wins[16];
-    int n = find_tb_windows(d, wins, 16);
+    int n = find_tb_windows(d, DefaultRootWindow(d), wins, 16);
     for (int i = 0; i < n; i++)
         XIconifyWindow(d, wins[i], DefaultScreen(d));
     XFlush(d);
@@ -259,7 +242,7 @@ static gboolean tb_visible(void) {
     Display *d = XOpenDisplay(NULL);
     if (!d) return FALSE;
     Window wins[16];
-    int n = find_tb_windows(d, wins, 16);
+    int n = find_tb_windows(d, DefaultRootWindow(d), wins, 16);
     gboolean visible = FALSE;
     for (int i = 0; i < n; i++) {
         XWindowAttributes wa;
@@ -280,7 +263,7 @@ static void tb_withdraw_all(void) {
     Display *d = XOpenDisplay(NULL);
     if (!d) return;
     Window wins[16];
-    int n = find_tb_windows(d, wins, 16);
+    int n = find_tb_windows(d, DefaultRootWindow(d), wins, 16);
     for (int i = 0; i < n; i++)
         XWithdrawWindow(d, wins[i], DefaultScreen(d));
     XFlush(d);
@@ -294,7 +277,7 @@ static void tb_refresh_keys(void) {
     int xtst = 0, fev = 0, fer = 0;
     if (!XQueryExtension(d, "XTEST", &xtst, &fev, &fer)) { XCloseDisplay(d); return; }
     Window wins[16];
-    int n = find_tb_windows(d, wins, 16);
+    int n = find_tb_windows(d, DefaultRootWindow(d), wins, 16);
     if (n == 0) { XCloseDisplay(d); return; }
     /* сфокусировать окно TB, чтобы клавиши ушли туда */
     XSetInputFocus(d, wins[0], RevertToPointerRoot, CurrentTime);
@@ -325,7 +308,7 @@ static gboolean delayed_hide(gpointer data G_GNUC_UNUSED) {
     Display *d = XOpenDisplay(NULL);
     if (d) {
         Window wins[16];
-        int n = find_tb_windows(d, wins, 16);
+        int n = find_tb_windows(d, DefaultRootWindow(d), wins, 16);
         for (int i = 0; i < n; i++)
             XWithdrawWindow(d, wins[i], DefaultScreen(d));
         XCloseDisplay(d);
