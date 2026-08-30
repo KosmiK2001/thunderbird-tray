@@ -15,6 +15,7 @@
 #include <glib.h>
 #include <glib/gstdio.h>
 #include <gio/gio.h>
+#include <glib-unix.h>
 #include <cairo.h>
 #include <string.h>
 #include <stdio.h>
