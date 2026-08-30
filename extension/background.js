@@ -70,9 +70,15 @@ browser.messages.onNewMailReceived.addListener((folder, messages) => {
     report();
 });
 
-browser.alarms.create("tb-tray-report", { periodInMinutes: 1 });
-browser.alarms.onAlarm.addListener(a => {
-    if (a.name === "tb-tray-report") report();
-});
+/* alarms может отсутствовать в некоторых сборках — дублируем таймером */
+if (browser.alarms) {
+    browser.alarms.create("tb-tray-report", { periodInMinutes: 1 });
+    browser.alarms.onAlarm.addListener(a => {
+        if (a.name === "tb-tray-report") report();
+    });
+} else {
+    setInterval(report, 60000);
+}
 
+console.log("tb-tray reporter: background started");
 report();
