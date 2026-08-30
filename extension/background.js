@@ -1,7 +1,7 @@
 "use strict";
 /*
- * tb-tray reporter: counts unread messages and reports them to the
- * tb-tray GTK tray applet listening on 127.0.0.1:8765.
+ * tb-tray reporter: counts unread messages (all accounts) and reports them
+ * to the tb-tray GTK tray applet on 127.0.0.1:8765.
  */
 
 const ENDPOINT = "http://127.0.0.1:8765/report";
@@ -10,26 +10,41 @@ async function report() {
     try {
         let unread = 0;
         let last = null;
+        let boxes = [];
 
-        let page = await browser.messages.query({ unread: true });
-        unread += page.messages.length;
-        if (page.messages.length) {
-            const m = page.messages[page.messages.length - 1];
-            last = { from: m.author, subject: m.subject };
+        const accounts = await browser.accounts.list();
+        for (const acc of accounts) {
+            let aUnread = 0, aTotal = 0;
+            const stack = [...(acc.folders || [])];
+            while (stack.length) {
+                const f = stack.pop();
+                (f.subFolders || []).forEach(s => stack.push(s));
+                try {
+                    const info = await browser.folders.getFolderInfo(f);
+                    aUnread += info.totalUnread || 0;
+                    aTotal += info.totalMessageCounts || 0;
+                } catch (e) { /* folder vanished */ }
+            }
+            boxes.push({ name: acc.name || acc.id, unread: aUnread, total: aTotal });
+            unread += aUnread;
         }
+
+        // последний непрочитанный (для уведомления)
+        let page = await browser.messages.query({ unread: true });
+        const all = page.messages.slice();
         while (page.id) {
             page = await browser.messages.continueList(page.id);
-            unread += page.messages.length;
-            if (page.messages.length) {
-                const m = page.messages[page.messages.length - 1];
-                last = { from: m.author, subject: m.subject };
-            }
+            all.push(...page.messages);
+        }
+        if (all.length) {
+            const m = all[all.length - 1];
+            last = { from: m.author, subject: m.subject };
         }
 
         await fetch(ENDPOINT, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ unread: unread, last: last })
+            body: JSON.stringify({ unread: unread, last: last, boxes: boxes })
         });
     } catch (e) {
         /* applet not running — silent */

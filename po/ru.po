@@ -1,0 +1,53 @@
+# tb-tray Russian translations.
+msgid ""
+msgstr ""
+"Project-Id-Version: tb-tray 1.0.0\n"
+"Language: ru\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Thunderbird: %1$d unread | tb-tray v%2$s"
+msgstr "Thunderbird: %1$d непрочитанных | tb-tray v%2$s"
+
+msgid "New mail (%d)"
+msgstr "Новое письмо (%d)"
+
+msgid "%1$s — %2$d new / %3$d total"
+msgstr "%1$s — %2$d новых / %3$d всего"
+
+msgid "No data — is the tb-tray reporter extension running?"
+msgstr "Нет данных — запущено ли расширение tb-tray reporter?"
+
+msgid "Minimize"
+msgstr "Свернуть"
+
+msgid "Restore"
+msgstr "Развернуть"
+
+msgid "Refresh"
+msgstr "Обновить"
+
+msgid "About"
+msgstr "О программе"
+
+msgid "Exit"
+msgstr "Выход"
+
+msgid "Thunderbird tray applet (GTK3 build)"
+msgstr "Апплет трея Thunderbird (сборка GTK3)"
+
+msgid "MAIL CLIENT THUNDERBIRD NOT FOUND!"
+msgstr "ПОЧТОВЫЙ КЛИЕНТ THUNDERBIRD НЕ НАЙДЕН!"
+
+msgid ""
+"Check your Thunderbird installation\n"
+"(or set the path in the TB_CMD variable).\n"
+"The applet will close in 10 seconds."
+msgstr ""
+"Проверьте установку Thunderbird\n"
+"(или задайте путь в переменной TB_CMD).\n"
+"Апплет будет закрыт через 10 секунд."
+
+msgid "tb-tray already running"
+msgstr "tb-tray уже запущен"
