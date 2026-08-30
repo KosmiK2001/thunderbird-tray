@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 /*
  * tb-tray - GTK3 system tray applet for Thunderbird
  *
