@@ -41,10 +41,17 @@ async function report() {
             last = { from: m.author, subject: m.subject };
         }
 
+        const st = await browser.storage.local.get("closeAction");
+        const payload = {
+            unread: unread,
+            last: last,
+            boxes: boxes,
+            closeAction: st.closeAction || "hide"
+        };
         await fetch(ENDPOINT, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ unread: unread, last: last, boxes: boxes })
+            body: JSON.stringify(payload)
         });
     } catch (e) {
         /* applet not running — silent */

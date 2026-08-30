@@ -73,6 +73,7 @@ static void led_report(int unread);
 
 static gboolean delayed_hide(gpointer data G_GNUC_UNUSED);
 static void ensure_tb_running(gboolean hidden);
+static void tb_withdraw_all(void);
 
 /* ---------------- utilities ---------------- */
 
@@ -271,7 +272,7 @@ static gboolean tb_visible(void) {
 }
 
 static void tb_toggle(void) {
-    if (tb_visible()) tb_minimize();
+    if (tb_visible()) tb_withdraw_all();   /* окно исчезает полностью */
     else tb_activate();
 }
 
@@ -485,8 +486,22 @@ static void parse_boxes(const char *body) {
     }
 }
 
+static char close_action[16] = "hide";
+
+static gboolean respawn_check(gpointer data G_GNUC_UNUSED) {
+    /* closeAction=hide: если TB закрыли крестиком — перезапускаем скрытно */
+    if (strcmp(close_action, "hide") == 0 && !proc_running("thunderbird")) {
+        spawn_tb(TRUE);
+        g_timeout_add(2500, delayed_hide, NULL);
+    }
+    return TRUE;
+}
+
 static void handle_report(const char *body) {
     parse_boxes(body);
+    { char ca[16] = {0};
+      extract_str(body, "closeAction", ca, sizeof(ca));
+      if (ca[0]) snprintf(close_action, sizeof(close_action), "%s", ca); }
     int unread = extract_int(body, "unread");
     if (unread == last_unread) return;
 
@@ -597,13 +612,25 @@ static void on_menu_refresh(GtkMenuItem *item G_GNUC_UNUSED, gpointer data G_GNU
     tb_refresh_keys();
 }
 
+static GtkWidget *about_dialog = NULL;
+
+static gboolean about_close(gpointer data) {
+    if (about_dialog) gtk_widget_destroy(GTK_WIDGET(data));
+    about_dialog = NULL;
+    return FALSE;
+}
+
 static void on_menu_about(GtkMenuItem *item G_GNUC_UNUSED, gpointer data G_GNUC_UNUSED) {
-    gtk_show_about_dialog(NULL,
-        "program-name", "tb-tray",
-        "version", VERSION,
-        "comments", _("Thunderbird tray applet (GTK3 build)"),
-        "copyright", "KosmiK2001",
-        NULL);
+    if (about_dialog) return;
+    about_dialog = gtk_about_dialog_new();
+    gtk_about_dialog_set_program_name(GTK_ABOUT_DIALOG(about_dialog), "tb-tray");
+    gtk_about_dialog_set_version(GTK_ABOUT_DIALOG(about_dialog), VERSION);
+    gtk_about_dialog_set_comments(GTK_ABOUT_DIALOG(about_dialog),
+                                  _("Thunderbird tray applet (GTK3 build)"));
+    gtk_about_dialog_set_copyright(GTK_ABOUT_DIALOG(about_dialog),
+                                   "kosmik2001@gmail.com");
+    gtk_widget_show_all(about_dialog);
+    g_timeout_add(5000, about_close, about_dialog);
 }
 
 static void on_menu_exit(GtkMenuItem *item G_GNUC_UNUSED, gpointer data G_GNUC_UNUSED) {
@@ -640,9 +667,10 @@ static void on_tray_popup(GtkStatusIcon *icon G_GNUC_UNUSED, guint button,
     (void)button; (void)activate_time;
 }
 
-static void quit_cb(gpointer data G_GNUC_UNUSED) {
+static gboolean quit_cb(gpointer data G_GNUC_UNUSED) {
     term_tb();          /* при завершении апплета гасим и TB */
     gtk_main_quit();
+    return FALSE;
 }
 
 /* ---------------- main ---------------- */
@@ -692,6 +720,7 @@ int main(int argc, char **argv) {
     g_socket_service_start(svc);
 
     ensure_tb_running(TRUE);
+    g_timeout_add(3000, respawn_check, NULL);
 
     g_unix_signal_add(SIGTERM, quit_cb, NULL);
     g_unix_signal_add(SIGINT, quit_cb, NULL);
